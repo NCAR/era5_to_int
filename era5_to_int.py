@@ -42,6 +42,7 @@ class RH2mDiags:
     """ Implements the computation of RH (relative humidity in % at the surface)
     from ERA5 VAR_2T (2m temperature) and VAR_2D (2m dewpoint) fields.
     """
+
     def __init__(self):
         self.t = None
         self.td = None
@@ -78,6 +79,7 @@ class RHDiags:
     from ERA5 T (temperature) and Q (specific humidity) fields at a corresponding
     pressure level.
     """
+
     def __init__(self):
         self.savefields = {}
 
