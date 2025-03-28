@@ -246,6 +246,11 @@ def find_era5_file(var, validtime, localpaths=None):
     import os.path
 
     glade_paths = [
+        '/glade/campaign/collections/rda/data/d633006/e5.oper.an.ml/',
+        '/glade/campaign/collections/rda/data/d633000/e5.oper.an.pl/',
+        '/glade/campaign/collections/rda/data/d633000/e5.oper.an.sfc/',
+        '/glade/campaign/collections/rda/data/d633000/e5.oper.invariant/197901/',
+        '/glade/campaign/collections/rda/data/d633006/e5.oper.invariant/',
         '/glade/campaign/collections/rda/data/ds633.6/e5.oper.an.ml/',
         '/glade/campaign/collections/rda/data/ds633.0/e5.oper.an.pl/',
         '/glade/campaign/collections/rda/data/ds633.0/e5.oper.an.sfc/',
