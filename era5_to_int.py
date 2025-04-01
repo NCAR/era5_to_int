@@ -42,6 +42,7 @@ class RH2mDiags:
     """ Implements the computation of RH (relative humidity in % at the surface)
     from ERA5 VAR_2T (2m temperature) and VAR_2D (2m dewpoint) fields.
     """
+
     def __init__(self):
         self.t = None
         self.td = None
@@ -72,6 +73,85 @@ class RH2mDiags:
 
             self.t = None
             self.td = None
+
+
+class RHDiags:
+    """ Implements the computation of RH (relative humidity in % at pressure level)
+    from ERA5 T (temperature) and Q (specific humidity) fields at a corresponding
+    pressure level.
+    """
+
+    def __init__(self):
+        self.savefields = {}
+
+    def liquidSaturationVaporMixRatio(self, t, p):
+        """ Based on the RSLF function from the Thompson microphysics scheme in WRF
+        Compute the saturation vapor mixing ratio with respect to liquid water.
+        """
+
+        t0 = 273.16
+        C0= .611583699E03
+        C1= .444606896E02
+        C2= .143177157E01
+        C3= .264224321E-1
+        C4= .299291081E-3
+        C5= .203154182E-5
+        C6= .702620698E-8
+        C7= .379534310E-11
+        C8=-.321582393E-13
+
+        t_bounded =np.maximum(-80.0, t - t0)
+        # Simplified calc of saturation vapor pressure
+        # esL = 612.2 * np.exp(17.67 * t_bounded / (self.t-29.65))
+        # esL with coefficients used instead
+        esL = (C0 + t_bounded
+                * (C1 + t_bounded
+                  * (C2 + t_bounded
+                    * (C3 + t_bounded
+                      * (C4 + t_bounded
+                        * (C5 + t_bounded
+                          * (C6 + t_bounded
+                            * (C7 + t_bounded * C8)
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+
+        # Even with P=1050mb and T=55C, the sat. vap. pres only contributes to
+        # ~15% of total pres.
+        esL = np.minimum(esL, p * 0.15)
+        mixRatioESL = .622 * esL / (p - esL)
+        return mixRatioESL
+
+    def consider(self, field, xlvl, proj, hdate, slab, intfile):
+        """ Considers whether a given field may be used in the computation
+        of RH at the given pressure level. When all available information has
+        been acquired, this method computes the RH field and writes it to the
+        output intermediate file.
+        """
+
+        if field == 'SPECHUMD':
+            self.savefields[('q', xlvl )] = slab
+        # Differentiate from surface pressure TT denoted by 200100.0
+        elif field == 'TT' and xlvl != 200100.0:
+            self.savefields[('tt', xlvl)] = slab
+        else:
+            return
+
+        if ('tt', xlvl) in self.savefields and ('q', xlvl) in self.savefields:
+          print('Computing RH at ' + str(xlvl))
+          mixRatioESL = self.liquidSaturationVaporMixRatio( self.savefields[('tt', xlvl)], xlvl)
+          mixRatioWaterVapor = self.savefields[('q', xlvl)] / (1.0 - self.savefields[('q', xlvl)])
+          rh = 100.0 * mixRatioWaterVapor / mixRatioESL
+
+          write_slab(intfile, rh, xlvl, proj, 'RH', hdate, '%',
+              'ERA5 reanalysis grid', 'Relative humidity')
+
+          del self.savefields[('tt', xlvl)]
+          del self.savefields[('q', xlvl)]
 
 
 class GeopotentialHeightDiags:
@@ -404,6 +484,9 @@ if __name__ == '__main__':
     diagnostics.append(SnowDiags())
     diagnostics.append(RH2mDiags())
     diagnostics.append(GeopotentialHeightDiags())
+
+    if args.isobaric:
+        diagnostics.append(RHDiags())
 
     int_vars = []
     if args.isobaric:
