@@ -462,6 +462,7 @@ if __name__ == '__main__':
     parser.add_argument('interval_hours', type=int, nargs='?', default=6, help='the interval in hours between records to be converted (Default: %(default)s)')
     parser.add_argument('-p', '--path', help='the local path to search for ERA5 netCDF files')
     parser.add_argument('-i', '--isobaric', action='store_true', help='use ERA5 pressure-level data rather than model-level data')
+    parser.add_argument('-v', '--variables', help='a comma-separated list, without spaces, of WPS variable names to process')
     args = parser.parse_args()
 
     try:
@@ -537,6 +538,25 @@ if __name__ == '__main__':
     else:
         paths = None
 
+    # Prepare a list of variables to process. By default, this list contains
+    #   all WPS variables from the int_vars list, but the user may have supplied
+    #   a subset of these variables.
+    var_set = [ int_var.WPSname for int_var in int_vars ]
+    if args.variables != None:
+        user_var_set = args.variables.split(',')
+
+        errcount = 0
+        for v in user_var_set:
+            if v not in var_set:
+                errcount = errcount + 1
+                print('Error: ' + v + ' is not a known WPS variable')
+
+        if errcount > 0:
+            print('The following are known WPS variables:', var_set)
+            sys.exit(1)
+
+        var_set = user_var_set
+
     currDate = startDate
     while currDate <= endDate:
         initdate = datetime_to_string(currDate)
@@ -545,6 +565,10 @@ if __name__ == '__main__':
         intfile = WPSUtils.IntermediateFile('ERA5', initdate)
 
         for v in int_vars:
+
+            if v.WPSname not in var_set:
+                continue
+
             try:
                 e5filename = find_era5_file(v, initdate, localpaths=paths)
             except RuntimeError as e:

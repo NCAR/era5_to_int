@@ -110,10 +110,26 @@ convert data at a three-hourly interval for the month of May 2024:
 era5_to_int.py 2024-05-01_00 2024-05-31_21 3
 ```
 
+If only a subset of the standard set of fields is needed, the `-v`/`--variables`
+command-line option may be used to specify this subset as a comma-separated
+list, without spaces, of the WPS field names. For example:
+```
+era5_to_int.py -v LANDSEA,SEAICE,SKINTEMP 2024-01-01_00 2024-01-31_00 24
+```
+In this example, intermediate files would be created with only the three fields
+provided to the `-v` option, i.e., LANDSEA, SEAICE, and SKINTEMP. None of the
+other fields that are usually processed by the `era5_to_int.py` script will be
+processed.
+
+Note that if a diagnostic variable (e.g, GHT) is needed in the output
+intermediate files, all of the fields required to compute that diagnostic field
+(e.g., GEOPT) must be specified in the list supplied to the `-v`/`--variable`
+option.
+
 Usage is provided by running the `era5_to_int.py` script with the `-h`/`--help`
 argument, which prints the following:
 ```
-usage: era5_to_int.py [-h] [-p PATH] [-i] datetime [until_datetime] [interval_hours]
+usage: era5_to_int.py [-h] [-p PATH] [-i] [-v VARIABLES] datetime [until_datetime] [interval_hours]
 
 positional arguments:
   datetime              the date-time to convert in YYYY-MM-DD_HH format
@@ -125,6 +141,8 @@ options:
   -h, --help            show this help message and exit
   -p PATH, --path PATH  the local path to search for ERA5 netCDF files
   -i, --isobaric        use ERA5 pressure-level data rather than model-level data
+  -v VARIABLES, --variables VARIABLES
+                        a comma-separated list, without spaces, of WPS variable names to process
 ```
 
 ## Supplementary files
