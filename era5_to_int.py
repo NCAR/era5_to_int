@@ -401,12 +401,13 @@ def write_slab( intfile, slab, xlvl, proj, WPSname, hdate, units, map_source, de
     through a previous call to the WPSUtils.intermediate.write_met_init
     routine.
     """
+    missing_value = -1.0e30
     stat = intfile.write_next_met_field(
         5, slab.shape[1], slab.shape[0], proj.projType, 0.0, xlvl,
         proj.startLat, proj.startLon, proj.startI, proj.startJ,
         proj.deltaLat, proj.deltaLon, proj.dx, proj.dy, proj.xlonc,
         proj.truelat1, proj.truelat2, 6371229.0, 0, WPSname,
-        hdate, units, map_source, desc, slab)
+        hdate, units, map_source, desc, slab.filled(missing_value))
 
 
 def add_trailing_slash(str):
