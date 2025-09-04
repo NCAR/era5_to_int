@@ -183,6 +183,90 @@ class GeopotentialHeightDiags:
             return
 
 
+class ModelLevelPresGhtDiags:
+    """ Implements the computation of the 3D pressure field and geopotential height
+    from ECMWF model-level data utilizing the A and B coefficients provided from
+    a coefficients array.
+    This takes the place of the utility program calc_ecmwf_p.exe and thus the
+    utility program need not be run on the resulting intermediate file.
+    """
+
+    def __init__(self, coeff_a, coeff_b):
+        from collections import defaultdict
+
+        self.coeff_a = coeff_a
+        self.coeff_b = coeff_b
+        self.savefields = defaultdict(dict)
+
+    def consider(self, field, xlvl, proj, hdate, slab, intfile):
+        import numpy as np
+
+        if field == 'SOILGEO':
+            self.savefields['hgtsfc'] = slab / 9.81
+        elif field == 'PSFC':
+            self.savefields['psfc'] = slab
+        elif field == 'TT' and xlvl != 200100.0:
+            self.savefields['tt'][xlvl] = slab
+        elif field == 'SPECHUMD':
+            self.savefields['q'][xlvl] = slab
+
+        if ('hgtsfc' in self.savefields and
+            'psfc' in self.savefields and
+            len(self.savefields['tt']) == self.coeff_a.shape[0] - 1 and
+            len(self.savefields['q']) == self.coeff_a.shape[0] - 1):
+
+            print('Computing pressure and geopotential height from model levels')
+            levels = sorted(list(self.savefields['tt'].keys()))
+
+            q = self.savefields['q']
+            tt = self.savefields['tt']
+
+            # psfc and hgtsfc are the first at bottom
+            psfc = self.savefields['psfc']
+            hgtprev = self.savefields['hgtsfc']
+            print('Computing pressure and geopotential height for surface')
+            write_slab(intfile, psfc, 200100.0, proj, 'PRESSURE', hdate, 'Pa', 'ERA5 reanalysis grid', 'Pressure')
+            write_slab(intfile, hgtprev, 200100.0, proj, 'GHT', hdate, 'm', 'ERA5 reanalysis grid', 'Geopotential height')
+
+            # Loop from the surface to top, where level 1 is the top and max level is surface
+            # Note that there is an extra blank at the very top (index 0)
+            for idx, level in reversed(list(enumerate(levels))):
+                print(f'Computing pressure and geopotential height for {level}')
+
+                # Offset by one to "match" levels starting at zero and the way calc_ecmwf_p
+                # indexes into the coeffs
+                i = idx + 1
+
+                # Compute using the half level pressure at the current half-level
+                a = 0.5 * (self.coeff_a[i-1] + self.coeff_a[i])
+                b = 0.5 * (self.coeff_b[i-1] + self.coeff_b[i])
+
+                # Initial values at the bottom of this level
+                pres = a + b * psfc
+                pres_start = psfc
+                q_half = q[level]
+                tt_half = tt[level]
+
+                if i != len(levels):
+                    # if not the surface level use half level pressure, temperature, and specific humidity
+                    a = 0.5 * (self.coeff_a[i+1] + self.coeff_a[i])
+                    b = 0.5 * (self.coeff_b[i+1] + self.coeff_b[i])
+                    pres_start = a + b * psfc
+                    next_level = levels[levels.index(level)+1]
+                    q_half = 0.5 * (q_half + q[next_level])
+                    tt_half = 0.5 * (tt_half + tt[next_level])
+
+                # Compute virtual temperature
+                tv = 287.05 * tt_half * (1.0 + 0.61 * q_half)
+                hgtprev = hgtprev + tv * np.log(pres_start / pres) / 9.81
+
+                write_slab(intfile, pres, level, proj, 'PRESSURE', hdate, 'Pa', 'ERA5 reanalysis grid', '3-d pressure')
+                write_slab(intfile, hgtprev, level, proj, 'GHT', hdate, 'm', 'ERA5 reanalysis grid', '3-d geopotential height')
+
+            for key in list(self.savefields.keys()):
+                del self.savefields[key]
+
+
 def days_in_month(year, month):
     """ Returns the number of days in a month, depending on the year.
     A Gregorian calendar is assumed for the purposes of determining leap
@@ -489,6 +573,9 @@ if __name__ == '__main__':
 
     if args.isobaric:
         diagnostics.append(RHDiags())
+    else:
+        coeffs = np.loadtxt('./ecmwf_coeffs', usecols=(1,2))
+        diagnostics.append(ModelLevelPresGhtDiags(coeffs[:,0], coeffs[:,1]))
 
     int_vars = []
     if args.isobaric:
