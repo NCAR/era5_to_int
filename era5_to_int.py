@@ -540,6 +540,7 @@ if __name__ == '__main__':
     import argparse
     import datetime
     import sys
+    import os
 
     parser = argparse.ArgumentParser()
     parser.add_argument('datetime', help='the date-time to convert in YYYY-MM-DD_HH format')
@@ -548,6 +549,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--path', help='the local path to search for ERA5 netCDF files')
     parser.add_argument('-i', '--isobaric', action='store_true', help='use ERA5 pressure-level data rather than model-level data')
     parser.add_argument('-v', '--variables', help='a comma-separated list, without spaces, of WPS variable names to process')
+    parser.add_argument('-o', '--output_path', help='directory where WPS intermediate files will be written (default: current directory)', default='.')
     args = parser.parse_args()
 
     try:
@@ -559,6 +561,10 @@ if __name__ == '__main__':
     print('datetime = ', startDate)
     print('until_datetime = ', endDate)
     print('interval_hours = ', intvH)
+
+    # Ensure output directory exists
+    outdir = add_trailing_slash(args.output_path)
+    os.makedirs(outdir, exist_ok=True)
 
     # Set up the two map projections used in the ERA5 fields to be converted
     Gaussian = MapProjection(WPSUtils.Projections.GAUSS,
@@ -650,7 +656,9 @@ if __name__ == '__main__':
         initdate = datetime_to_string(currDate)
         print('Processing time record ' + initdate)
 
-        intfile = WPSUtils.IntermediateFile('ERA5', initdate)
+        # Create intermediate file in user-specified output directory
+        outfile_prefix = os.path.join(outdir, 'ERA5')
+        intfile = WPSUtils.IntermediateFile(outfile_prefix, initdate)
 
         for v in int_vars:
 
