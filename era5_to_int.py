@@ -540,6 +540,7 @@ if __name__ == '__main__':
     import argparse
     import datetime
     import sys
+    from pathlib import Path
 
     parser = argparse.ArgumentParser()
     parser.add_argument('datetime', help='the date-time to convert in YYYY-MM-DD_HH format')
@@ -574,7 +575,8 @@ if __name__ == '__main__':
     if args.isobaric:
         diagnostics.append(RHDiags())
     else:
-        coeffs = np.loadtxt('./ecmwf_coeffs', usecols=(1,2))
+        coeffs_path = Path(__file__).resolve().parent / "ecmwf_coeffs"
+        coeffs = np.loadtxt(coeffs_path, usecols=(1, 2))
         diagnostics.append(ModelLevelPresGhtDiags(coeffs[:,0], coeffs[:,1]))
 
     int_vars = []
